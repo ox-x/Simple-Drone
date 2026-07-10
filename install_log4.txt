@@ -1,3 +1,0 @@
-Downloading packages...
-esp32:esp-x32@2601 esp32:esp-x32@2601 already downloaded
-Error during install: removing corrupted archive file: remove C:\Users\admin\AppData\Local\Arduino15\staging\packages\xtensa-esp-elf-gdb-16.3_20250913-x86_64-w64-mingw32.zip: The process cannot access the file because it is being used by another process.

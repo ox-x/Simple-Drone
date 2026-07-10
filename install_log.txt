@@ -1,3 +1,0 @@
-Downloading packages...
-esp32:esp-x32@2601 Get "https://github.com/espressif/crosstool-NG/releases/download/esp-14.2.0_20260121/xtensa-esp-elf-14.2.0_20260121-x86_64-w64-mingw32.zip": read tcp 192.168.3.186:12613->20.205.243.166:443: wsarecv: An established connection was aborted by the software in your host machine.
-Error during install: Get "https://github.com/espressif/crosstool-NG/releases/download/esp-14.2.0_20260121/xtensa-esp-elf-14.2.0_20260121-x86_64-w64-mingw32.zip": read tcp 192.168.3.186:12613->20.205.243.166:443: wsarecv: An established connection was aborted by the software in your host machine.

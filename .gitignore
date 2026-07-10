@@ -1,4 +1,21 @@
-build/*
-docs/*
-.github/*
-.vscode/*
+# 编译临时目录
+CF-Drone/
+
+# arduino-cli 工具
+arduino-cli/
+
+# 安装日志
+install_*.txt
+gdb_url.txt
+
+# 预览文件
+preview/
+
+# 批处理脚本
+*.bat
+
+# 系统文件
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
