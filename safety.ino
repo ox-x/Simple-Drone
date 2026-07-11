@@ -116,12 +116,15 @@ void webRCLossFailsafe() {
 }
 #endif
 
+extern bool flipActive; // control.ino
+
 // 倒置保护：机体Z轴与世界Z轴夹角超过120°持续1.5秒则停机
 void invertedFailsafe() {
 	if (!armed) {
 		isInverted = false;
 		return;
 	}
+	if (flipActive) return; // 翻转中跳过倒置检测
 
 	// 取机体Z轴在世界系的Z分量：正立时≈+1，倒置时≈-1
 	Vector worldUp = Quaternion::rotateVector(Vector(0, 0, 1), attitude);

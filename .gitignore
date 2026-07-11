@@ -11,6 +11,19 @@ gdb_url.txt
 # 预览文件
 preview/
 
+# 调试临时文件
+cmd.txt
+*.vbs
+monitor_out.txt
+mon_out.txt
+flip_log_output.txt
+py_err*.txt
+read_log.py
+run_monitor.py
+
+# 固件编译产物
+firmware/
+
 # 批处理脚本
 *.bat
 

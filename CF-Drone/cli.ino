@@ -164,6 +164,8 @@ void doCommand(String str, bool echo = false) {
 	} else if (command == "log") {
 		printLogHeader();
 		if (arg0 == "dump") printLogData();
+	} else if (command == "fliplog") {
+		printFlipLog();
 	} else if (command == "cr") {
 		calibrateRC();
 	} else if (command == "ca") {

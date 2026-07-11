@@ -88,7 +88,7 @@ body{font-family:'Roboto Mono',Arial,"Microsoft YaHei",sans-serif;background:#3c
 .buttons-container{flex:.55;display:flex;flex-direction:column;gap:10px;padding:12px;background:rgba(0,0,0,.4);border-radius:20px;border:2px solid rgba(150,150,150,.3);box-shadow:inset 0 0 20px rgba(0,0,0,.5)}
 .buttons-grid{display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(2,1fr);gap:8px;flex:1}
 .buttons-grid>button{grid-column:span 2}
-.buttons-grid>button:nth-child(4),.buttons-grid>button:nth-child(5){grid-column:span 3}
+.buttons-grid>button:nth-child(4),.buttons-grid>button:nth-child(5),.buttons-grid>button:nth-child(6){grid-column:span 2}
 .button{background:linear-gradient(145deg,#484848,#383838);border:none;border-radius:10px;color:#fff;font-size:.85rem;font-weight:bold;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:10px 5px;cursor:pointer;transition:all .15s cubic-bezier(.4,0,.2,1);box-shadow:0 3px 10px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1);position:relative}
 .button:hover{background:linear-gradient(145deg,#565656,#464646);transform:translateY(-1px)}
 .button.active{background:linear-gradient(145deg,#1a73e8,#0d47a1);box-shadow:0 0 15px rgba(26,115,232,.6),inset 0 1px 0 rgba(255,255,255,.2);transform:scale(.95)}
@@ -267,7 +267,8 @@ const buttonConfigs = [
   {icon:"🔄",label:"切换模式", color:"#00cfff",desc:"自稳→特技→定高 循环切换"},
   {icon:"🖥",label:"调试",   color:"#4a9eff",desc:"调试控制台"},
   {icon:"🔒",label:"上锁",   color:"#ff3333",desc:"锁定电机"},
-  {icon:"🛑",label:"急停",   color:"#ff0055",desc:"紧急停止"}
+  {icon:"🛑",label:"急停",   color:"#ff0055",desc:"紧急停止"},
+  {icon:"🔁",label:"翻转",   color:"#ff9900",desc:"原地翻转180°"}
 ];
 
 /*======================== 初始化 ========================*/
@@ -554,12 +555,13 @@ function handleButton(idx) {
     if (navigator.vibrate) navigator.vibrate(30);
     return;
   }
-  // 解锁/上锁/急停：先发按下（state=1），100ms后发松开（state=0）
+  // 解锁/上锁/急停/翻转：先发按下（state=1），100ms后发松开（state=0）
   // 后端响应中携带 rt/bi/bs，前端用这些字段判断 toast，无需 lastPressedButton
-  if (idx === 0 || idx === 3 || idx === 4) {
+  if (idx === 0 || idx === 3 || idx === 4 || idx === 5) {
     if (idx === 0)      showToast('🔓 解锁中...');
     else if (idx === 3) showToast('🔒 上锁中...');
     else if (idx === 4) showToast('🛑 急停指令发送中...');
+    else if (idx === 5) showToast('🔁 翻转中...');
     sendButtonData(idx, 1);
     setTimeout(() => sendButtonData(idx, 0), 100);
     if (navigator.vibrate) navigator.vibrate(30);

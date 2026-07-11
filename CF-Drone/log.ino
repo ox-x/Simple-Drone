@@ -75,3 +75,27 @@ void printLogData() {
 		}
 	}
 }
+
+// ====== 翻转调试文本日志（环形缓存，断电丢失，串口可导出）======
+#define FLIP_LOG_SIZE 80
+#define FLIP_LOG_LINE_LEN 120
+static char flipLogBuf[FLIP_LOG_SIZE][FLIP_LOG_LINE_LEN];
+static int flipLogHead = 0;
+
+void flipLogPrint(const char* fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(flipLogBuf[flipLogHead], FLIP_LOG_LINE_LEN, fmt, args);
+	va_end(args);
+	flipLogHead = (flipLogHead + 1) % FLIP_LOG_SIZE;
+}
+
+void printFlipLog() {
+	print("===== 翻转日志 (最多%d条) =====\n", FLIP_LOG_SIZE);
+	for (int i = 0; i < FLIP_LOG_SIZE; i++) {
+		int idx = (flipLogHead + i) % FLIP_LOG_SIZE;
+		if (flipLogBuf[idx][0] != '\0') {
+			print("%s", flipLogBuf[idx]);
+		}
+	}
+}

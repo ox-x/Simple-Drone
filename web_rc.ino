@@ -34,7 +34,7 @@ float webRCRoll     = 0.0f;
 float webRCPitch    = 0.0f;
 float webRCYaw      = 0.0f;
 float webRCThrottle = 0.0f;
-uint16_t webRCButtons    = 0;       // 16位按钮位掩码，bit0=解锁 bit3=上锁 bit4=急停 bit6=STAB bit7=ACRO bit8=ALTHOLD
+uint16_t webRCButtons    = 0;       // 16位按钮位掩码，bit0=解锁 bit3=上锁 bit4=急停 bit5=翻转 bit6=STAB bit7=ACRO bit8=ALTHOLD
 unsigned long webRCLastUpdate = 0;  // 最后一次收包的 millis() 时间戳
 
 // ==================== 灵敏度缩放 ====================

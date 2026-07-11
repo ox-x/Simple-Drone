@@ -76,6 +76,8 @@ float motThrMax = 0.9f;   // 推力上限（摇杆最高位的输出），可通
 const int RAW = 0, ACRO = 1, STAB = 2, ALTHOLD = 3, AUTO = 4; // flight modes
 int mode = STAB;
 bool armed = false;
+bool flipActive = false;   // 翻转执行中
+int flipSavedMode = STAB;  // 翻转前的飞行模式，结束恢复
 int flightModes[] = {STAB, STAB, STAB}; // RC模式拨杆三挡对应的飞行模式，可通过参数 CTL_FLT_MODE_0/1/2 配置
 
 #if WEB_RC_ENABLED
@@ -120,13 +122,111 @@ extern const int MOTOR_REAR_LEFT, MOTOR_REAR_RIGHT, MOTOR_FRONT_RIGHT, MOTOR_FRO
 extern float motors[4];
 extern float controlRoll, controlPitch, controlThrottle, controlYaw, controlMode;
 extern float batteryVoltage;  // battery.ino
+bool flipRequested = false;      // Web RC 请求翻转
+bool gentleDescend = false;      // 缓降标志
+
+void resetAllPIDs() {
+	rollRatePID.reset();
+	pitchRatePID.reset();
+	yawRatePID.reset();
+	rollPID.reset();
+	pitchPID.reset();
+	yawPID.reset();
+}
 
 void control() {
+	// ====== 状态变化检测：解锁/上锁 → 重置 PID + 恢复模式 ======
+	static bool lastArmed = false;
+	if (armed != lastArmed) {
+		lastArmed = armed;
+		resetAllPIDs();
+		if (flipActive) {
+			mode = flipSavedMode;  // 中断翻转时恢复之前模式
+			flipActive = false;
+		}
+		if (armed) {
+			thrustTarget = 0;     // 解锁时确保油门归零
+			attitudeTarget.invalidate(); // 跳过角度环，等下次推油门再激活
+		}
+	}
+
 	interpretControls();
 #if WEB_RC_ENABLED
 	interpretWebRC();
 #endif
 	failsafe();
+
+	// ====== 翻转控制 ======
+	static float flipStartTime = 0;
+	static bool lastFlipActive = false;
+
+	if (flipActive != lastFlipActive) {
+		lastFlipActive = flipActive;
+		if (!flipActive) resetAllPIDs(); // 翻转结束 → 重置 PID
+	}
+
+	if (flipRequested && armed && thrustTarget < 0.1f) {
+		// 触发翻转：强制切换 ACRO 模式，结束后恢复
+		flipRequested = false;
+		flipActive = true;
+		flipStartTime = t;
+		flipSavedMode = mode;        // 保存当前飞行模式
+		mode = ACRO;                 // 临时切到 ACRO，跳过角度环干扰
+		attitudeTarget.invalidate();
+		resetAllPIDs();
+		Vector euler = attitude.toEuler();
+		flipLogPrint("[FLIP] 触发 t=%.3f mode=%d→ACRO thr=%.3f roll=%.1f\n",
+			t, flipSavedMode, thrustTarget, degrees(euler.x));
+	}
+
+	if (flipActive) {
+		float elapsed = t - flipStartTime;
+		int phase = -1;
+
+		// === 三阶段翻转：弹跳 → 360°翻转 → STAB回正 ===
+		if (elapsed < 0.25f) {
+			// Phase 0: 强力弹跳获得高度
+			phase = 0;
+			thrustTarget = 1.0f;
+			ratesTarget.x = 0;
+			ratesTarget.y = 0;
+			ratesTarget.z = 0;
+		} else if (elapsed < 0.48f) {
+			// Phase 1: 800°/s 翻 ~160°（不过180°），STAB可轻松回正
+			phase = 1;
+			thrustTarget = 0.90f;
+			ratesTarget.x = radians(800);
+			ratesTarget.y = 0;
+			ratesTarget.z = 0;
+		} else if (elapsed < 0.85f) {
+			// Phase 2: STAB回正，高推力让PID快速纠正，0.37s充足回正
+			phase = 2;
+			mode = flipSavedMode;
+			attitudeTarget = Quaternion::fromEuler(Vector(0, 0, attitude.getYaw()));
+			thrustTarget = 0.60f;
+			ratesTarget.x = 0;
+		} else {
+			// Phase 3: 完成，中推力保持PID运行姿态缓冲触地
+			phase = 3;
+			flipActive = false;
+			mode = flipSavedMode;
+			thrustTarget = 0.25f;
+			Vector euler = attitude.toEuler();
+			flipLogPrint("[FLIP] 完成 t=%.3f 历时=%.3f roll=%.1f pitch=%.1f\n",
+				t, elapsed, degrees(euler.x), degrees(euler.y));
+		}
+
+		// 翻转中每 50ms 写入缓存
+		if (flipActive && phase >= 1) {
+			static float lastLog = 0;
+			if (t - lastLog > 0.05f) {
+				lastLog = t;
+				Vector euler = attitude.toEuler();
+				flipLogPrint("[FLIP] t=%.3f phase=%d elap=%.3f thr=%.3f rRate=%.0f roll=%.1f\n",
+					t, phase, elapsed, thrustTarget, degrees(ratesTarget.x), degrees(euler.x));
+			}
+		}
+	}
 	controlAttitude();
 	controlRates();
 	controlTorque();
@@ -138,6 +238,11 @@ void interpretControls() {
 	else if (controlMode > 0.75) mode = flightModes[2];
 
 	if (mode == AUTO) return; // pilot is not effective in AUTO mode
+
+	// ====== 缓降状态管理：失能时强制复位，防止下次解锁异常 ======
+	static float descendStartThrust = 0;
+	static float descendStartTime = 0;
+	if (!armed) gentleDescend = false;
 
 #if WEB_RC_ENABLED
 	if (!isUsingWebRC()) { // SBUS手势解锁仅当WebRC未活跃时生效
@@ -176,12 +281,6 @@ void interpretControls() {
 #endif
 
 	if (abs(controlYaw) < 0.1) controlYaw = 0; // yaw dead zone
-
-	// 缓降标志：松油门后受控下降
-	// 分两阶段：① 当前推力 → motThrMin（线性，约2秒）② 保持 motThrMin 持续缓降（不自动上锁）
-	static bool gentleDescend = false;
-	static float descendStartThrust = 0;  // 进入缓降时的推力
-	static float descendStartTime = 0;    // 进入缓降的时刻
 
 	if (controlThrottle < 0.05f) {
 		if (armed && thrustTarget > motThrMin && !gentleDescend) {
@@ -364,6 +463,16 @@ void interpretWebRC() {
 	if (risingEdge & 0x0010) {
 		armed = false;
 		thrustTarget = 0.0f;
+	}
+
+	// 按钮5：翻转（上升沿）- 仅刚解锁且未推油门时有效
+	if (risingEdge & 0x0020) {
+		if (armed && thrustTarget < 0.1f) {
+			flipRequested = true;
+			print("Web RC: 翻转\n");
+		} else {
+			setWebRCWarn("油门过高，无法翻转");
+		}
 	}
 
 	// 按钮6：STAB模式（上升沿）
