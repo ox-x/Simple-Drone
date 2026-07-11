@@ -1,4 +1,4 @@
-# XTX Drone - ESP32 无人机飞控固件
+# Simple Drone - ESP32 无人机飞控固件
 
 基于 ESP32 的微型四轴无人机飞控固件，支持 Web 遥控器、多飞行模式、MAVLink 地面站通讯。
 
